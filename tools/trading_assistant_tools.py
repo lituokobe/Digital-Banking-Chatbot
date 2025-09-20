@@ -72,14 +72,16 @@ def search_stock(stock: str):
     Returns:
         The summary of the stock price and the relevant analysis of the price and the company.
     """
-    query = f"Check the current stock price of {stock} and the most recent analysis articles on the stock price movement or the company performance that affects the stock price."
+    query = f"Check the current stock price of {stock} and the most recent analysis articles on the stock price movement or the company news that affects the stock price."
     search = TavilySearch(max_results=3, api_key=TAVILY_API_KEY)
     response = search.run(query)
     if response["results"]:
         prompt_input = "\n\n".join([d["content"] for d in response["results"]])
 
     final_response = llm.invoke(
-        f"Here is the latest information of {stock} stock price: {prompt_input}, please summarize them in following format: The stock price of {stock} is XXX, and the analysis of the stock is XXXX.")
+        f"Here is the latest information of {stock} stock price: {prompt_input}, "
+        f"please summarize them in following format: The stock price of {stock} is XXX, and the analysis of the stock is XXXX."
+    )
 
     return final_response.content
 
@@ -108,12 +110,14 @@ def check_trading_account_balance(user_id: str):
         conn.close()
         return "The client has no trading account with the bank."
 
-    query = f"SELECT balance FROM {saving_account} where date = (SELECT MAX(date) FROM {saving_account})"
-    cursor.execute(query)
-    result = cursor.fetchone()
+    df_all = pd.read_sql_query(f"SELECT * FROM {trading_account}", conn).sort_values("date").reset_index(drop=True)
+    if len(df_all)>0:
+        current_cash = df_all["cash_end"].iloc[-1]
+    else:
+        current_cash = 0
     cursor.close()
     conn.close()
-    return f"Your saving account balance is {result[0]}."
+    return f"The user's trading account balance is ${current_cash:,.2f}."
 
 # TODO: Tool to check the earnings and holding details of the user's trading account
 @tool
@@ -334,13 +338,17 @@ def trade_stock(user_id: str, stock: str, action: Literal["buy", "sell"], volume
     if action == "buy":
         # Get available funds for validation of buy orders
         # Get latest cash_end
-        current_cash = df_all["cash_end"].iloc[-1]
+        if len(df_all) > 0:
+            current_cash = df_all["cash_end"].iloc[-1]
+        else:
+            current_cash = 0
         # Get the pending buy order amount
         df_buy_orders = df_orders[df_orders["action"] == "buy"]
         dict_buy_orders = df_buy_orders.to_dict(orient="records")
-        pending_buy_order_amount = 0
         if len(dict_buy_orders) > 0:
             pending_buy_order_amount = sum(item["total_amount"] for item in dict_buy_orders)
+        else:
+            pending_buy_order_amount = 0
 
         # Get total amount and available fund for the buy order
         total_amount = trading_amount + trading_fee
@@ -381,16 +389,17 @@ def trade_stock(user_id: str, stock: str, action: Literal["buy", "sell"], volume
         # Get available shares for validation of sell orders
         # Track holdings
         df_stock = df_all[df_all["stock"] == stock]
-        current_holdings = 0
         if len(df_stock) > 0:
             current_holdings = df_stock["volume"].sum()
+        else:
+            current_holdings = 0
         # Get pending volume for sell orders
         df_sell_orders = df_orders[df_orders["action"] == "sell"]
         df_stock_sell_orders = df_sell_orders[df_sell_orders["stock"] == stock]
-        pending_sell_order_volume = 0
         if len(df_stock_sell_orders) > 0:
             pending_sell_order_volume = abs(df_stock_sell_orders["volume"].sum())
-
+        else:
+            pending_sell_order_volume = 0
         # Get total amount and available volume for the sell order
         total_amount = trading_amount - trading_fee
         available_volume = current_holdings - pending_sell_order_volume

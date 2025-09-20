@@ -235,12 +235,13 @@ def transfer_fund(user_id: str, amount: float, recipient_account: str, recipient
     dict_transfers = df_transfers.to_dict(orient="records")
 
     # Have today's sum of pending transfers
-    today_pending_transfer = 0
     if len(dict_transfers) > 0:
         today = datetime.today().date()
         today_pending_transfer = sum(item["transfer_amount"]
                                      for item in dict_transfers
                                      if datetime.strptime(item['transfer_date'][:10], "%Y-%m-%d").date() == today)
+    else:
+        today_pending_transfer = 0
     available_funds = current_balance - today_pending_transfer
     if transfer_dt == today and amount > available_funds:
         cursor.close()
