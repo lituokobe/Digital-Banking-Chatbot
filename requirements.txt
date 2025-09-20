@@ -1,0 +1,6 @@
+langgraph>=0.0.40
+langchain-core>=0.1.14
+gradio>=4.0.0
+openai>=1.0.0
+tiktoken>=0.5.0
+python-dotenv>=1.0.0
