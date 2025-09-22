@@ -2,14 +2,15 @@ from langchain_core.messages import ToolMessage
 from langgraph.constants import END
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import tools_condition
-
 from graph.assistant import BankingAssistant, trading_assistant_runnable, trading_assistant_tools, \
-    account_assistant_runnable, account_assistant_tools, DB_usage_assistant_runnable, DB_usage_assistant_tools
+    account_assistant_runnable, account_assistant_tools, DB_usage_assistant_runnable, DB_usage_assistant_tools, \
+    account_assistant_safe_tools, account_assistant_sensitive_tools, trading_assistant_safe_tools, \
+    trading_assistant_sensitive_tools
 from graph.base_data_model import CompleteOrEscalate
 from graph.entry_node import create_entry_node
 from tools.tools_handler import create_tool_node_with_fallback
 
-
+# TODO: child graph for trading assistant
 def build_trading_graph(builder: StateGraph) -> StateGraph:
     """build child graph of trading assistant"""
     builder.add_node(
@@ -19,9 +20,14 @@ def build_trading_graph(builder: StateGraph) -> StateGraph:
     builder.add_node("trading_assistant", BankingAssistant(trading_assistant_runnable))
     builder.add_edge("enter_trading_assistant", "trading_assistant")
 
+    # Add nodes for sensitive tools and safe tools
     builder.add_node(
-        "trading_assistant_tools",
-        create_tool_node_with_fallback(trading_assistant_tools)
+        "trading_assistant_safe_tools",
+        create_tool_node_with_fallback(trading_assistant_safe_tools)
+    )
+    builder.add_node(
+        "trading_assistant_sensitive_tools",
+        create_tool_node_with_fallback(trading_assistant_sensitive_tools)
     )
     def route_trading(state: dict):
         """
@@ -30,28 +36,43 @@ def build_trading_graph(builder: StateGraph) -> StateGraph:
         :param state: dictionary of current dialog state
         :return: node name of next step
         """
-        route = tools_condition(state)  # decide next step
+        # Decide next step
+        route = tools_condition(state)
+        # If there is no tool calls, end the child graph workflow
         if route == END:
             return END
-        tool_calls = state["messages"][-1].tool_calls  # check tool call of the last message
-        did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)  # check if CompleteOrEscalate is called
+        # If there is tool call, get the tool call of last message
+        tool_calls = state["messages"][-1].tool_calls
+
+        # If the tool call is CompleteOrEscalate, we hand over the conversation to the primary assistant
+        did_cancel = any(
+            tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
         if did_cancel:
             return "leave_skill"  # if user requests to cancel or exit, move to node of leave_skill
-        # safe_toolnames = [t.name for t in book_car_rental_safe_tools]  # obtain all safe tool names
-        # if all(tc["name"] in safe_toolnames for tc in tool_calls):  # if all tools called are safe tools
-        #     return "book_car_rental_safe_tools"  # move to node of safe tools
-        # return "book_car_rental_sensitive_tools"  # otherwise move to node of sensitive tools
-        return "trading_assistant_tools"
 
-    builder.add_edge("trading_assistant_tools", "trading_assistant")
+        # If the tool call is somthing else, get the tool names of safe tools first.
+        safe_tool_names = [t.name for t in trading_assistant_safe_tools]
+        # If all tools called are safe tools
+        if all(tc["name"] in safe_tool_names for tc in tool_calls):
+            return "trading_assistant_safe_tools"
+        # When the sensitive tool is called
+        return "trading_assistant_sensitive_tools"
+
+    builder.add_edge("trading_assistant_safe_tools", "trading_assistant")
+    builder.add_edge("trading_assistant_sensitive_tools", "trading_assistant")
 
     builder.add_conditional_edges(
         "trading_assistant",
         route_trading,
-        ["trading_assistant_tools", "leave_skill", END]
+        [
+            "trading_assistant_safe_tools",
+            "trading_assistant_sensitive_tools",
+            "leave_skill",
+            END
+        ]
     )
 
-    # the node for exits of all child assistants
+    # Add the node for exits of all child assistants
     def pop_dialog_state(state: dict) -> dict:
         """
         pop dislog state and return to main assistant
@@ -79,7 +100,7 @@ def build_trading_graph(builder: StateGraph) -> StateGraph:
 
     return builder
 
-
+# TODO: child graph for account assistant
 def build_account_graph(builder: StateGraph) -> StateGraph:
     """build child graph of trading assistant"""
     builder.add_node(
@@ -89,9 +110,14 @@ def build_account_graph(builder: StateGraph) -> StateGraph:
     builder.add_node("account_assistant", BankingAssistant(account_assistant_runnable))
     builder.add_edge("enter_account_assistant", "account_assistant")
 
+    # Add nodes for sensitive tools and safe tools
     builder.add_node(
-        "account_assistant_tools",
-        create_tool_node_with_fallback(account_assistant_tools)
+        "account_assistant_safe_tools",
+        create_tool_node_with_fallback(account_assistant_safe_tools)
+    )
+    builder.add_node(
+        "account_assistant_sensitive_tools",
+        create_tool_node_with_fallback(account_assistant_sensitive_tools)
     )
 
     def route_account(state: dict):
@@ -101,26 +127,45 @@ def build_account_graph(builder: StateGraph) -> StateGraph:
         :param state: dictionary of current dialog state
         :return: node name of next step
         """
-        route = tools_condition(state)  # decide next step
+        # Decide next step
+        route = tools_condition(state)
+        # If there is no tool calls, end the child graph workflow
         if route == END:
             return END
-        tool_calls = state["messages"][-1].tool_calls  # check tool call of the last message
+        # If there is tool call, get the tool call of last message
+        tool_calls = state["messages"][-1].tool_calls
+
+        # If the tool call is CompleteOrEscalate, we hand over the conversation to the primary assistant
         did_cancel = any(
-            tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)  # check if CompleteOrEscalate is called
+            tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
         if did_cancel:
             return "leave_skill"  # if user requests to cancel or exit, move to node of leave_skill
-        return "account_assistant_tools"
 
-    builder.add_edge("account_assistant_tools", "account_assistant")
+        # If the tool call is somthing else, get the tool names of safe tools first.
+        safe_tool_names = [t.name for t in account_assistant_safe_tools]
+        # If all tools called are safe tools
+        if all(tc["name"] in safe_tool_names for tc in tool_calls):
+            return "account_assistant_safe_tools"
+        # When the sensitive tool is called
+        return "account_assistant_sensitive_tools"
+
+    builder.add_edge("account_assistant_safe_tools", "account_assistant")
+    builder.add_edge("account_assistant_sensitive_tools", "account_assistant")
 
     builder.add_conditional_edges(
         "account_assistant",
         route_account,
-        ["account_assistant_tools", "leave_skill", END]
+        [
+            "account_assistant_safe_tools",
+            "account_assistant_sensitive_tools",
+            "leave_skill",
+            END
+        ]
     )
 
     return builder
 
+# TODO: child graph for Digital Banking usage assistant
 def build_DB_usage_graph(builder: StateGraph) -> StateGraph:
     """build child graph of trading assistant"""
     builder.add_node(

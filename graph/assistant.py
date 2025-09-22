@@ -91,7 +91,11 @@ trading_assistant_prompt = ChatPromptTemplate.from_messages(
     ]
 ).partial(time=datetime.now())
 
-trading_assistant_tools = [search_stock, check_trading_account_balance, check_earnings, check_pending_order, trade_stock]
+# Define the same tools and sensitive tools
+trading_assistant_safe_tools = [search_stock, check_trading_account_balance, check_earnings, check_pending_order]
+trading_assistant_sensitive_tools = [trade_stock]
+
+trading_assistant_tools = trading_assistant_safe_tools + trading_assistant_sensitive_tools
 
 trading_assistant_runnable = trading_assistant_prompt | llm.bind_tools(
     trading_assistant_tools + [CompleteOrEscalate]
@@ -133,7 +137,11 @@ account_assistant_prompt = ChatPromptTemplate.from_messages(
     ]
 ).partial(time=datetime.now())
 
-account_assistant_tools = [check_saving_account_balance, check_account_history, check_pending_transfer, transfer_fund]
+# Define the same tools and sensitive tools
+account_assistant_safe_tools = [check_saving_account_balance, check_account_history, check_pending_transfer]
+account_assistant_sensitive_tools = [transfer_fund]
+
+account_assistant_tools = account_assistant_safe_tools + account_assistant_sensitive_tools
 
 account_assistant_runnable = account_assistant_prompt | llm.bind_tools(
     account_assistant_tools + [CompleteOrEscalate]

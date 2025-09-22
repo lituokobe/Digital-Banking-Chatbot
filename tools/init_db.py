@@ -1,6 +1,7 @@
 from datetime import datetime
 import pandas as pd
 import sqlite3
+from pathlib import Path
 
 def create_db_update_date(excel_path: str, db_path: str):
     """
@@ -42,4 +43,5 @@ def create_db_update_date(excel_path: str, db_path: str):
 
     conn.close()
 
-create_db_update_date("../database/banking_data.xlsx", "../database/banking_data.db")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+create_db_update_date(PROJECT_ROOT/"database/banking_data.xlsx", PROJECT_ROOT/"database/banking_data.db")

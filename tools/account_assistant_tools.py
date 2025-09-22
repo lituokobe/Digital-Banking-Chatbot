@@ -37,6 +37,7 @@ def check_saving_account_balance(user_id: str):
     return f"Your saving account balance is {result[0]}."
 
 # TODO: Tool to check the transaction history of the user's saving account
+@tool
 def check_account_history(user_id: str, start_date: str, end_date: str):
     """
     Check transaction history of user's saving account.
@@ -63,7 +64,7 @@ def check_account_history(user_id: str, start_date: str, end_date: str):
         return "The user has no saving account with the bank."
 
     # Extract the data in the queried period.
-    query = f"SELECT * FROM {saving_account} WHERE date BETWEEN ? AND ? ORDER BY date"
+    query = f"""SELECT * FROM {saving_account} WHERE date >= ? AND date < date(?, '+1 day') ORDER BY date"""
     df_all = pd.read_sql_query(query, conn, params=(start_date, end_date)).sort_values("date").reset_index(drop=True)  # Sort trades by date (safety)
     cursor.close()
     conn.close()
@@ -92,6 +93,13 @@ def check_account_history(user_id: str, start_date: str, end_date: str):
     lowest_expense = df_expense.loc[df_expense["transaction_amount"].idxmax()]
     avg_expense = total_expense / months_span
 
+    # Transfer analysis
+    df_transfer = df_all[df_all["transaction_category"] == "Transfer"]
+    total_transfer = -df_transfer["transaction_amount"].sum()
+    highest_transfer = df_transfer.loc[df_transfer["transaction_amount"].idxmin()]
+    lowest_transfer = df_transfer.loc[df_transfer["transaction_amount"].idxmax()]
+    avg_transfer = total_transfer / months_span
+
     # Build summary
     summary = f"**Transaction Summary from {start_date} to {end_date}**\n\n"
 
@@ -112,10 +120,19 @@ def check_account_history(user_id: str, start_date: str, end_date: str):
     if months_span > 1:
         summary += f"- Average Monthly Expense: ${avg_expense:,.2f}\n"
 
+    summary += f"\n**Transfer Overview**\n"
+    summary += f"- Total Transfer: ${total_transfer:,.2f}\n"
+    summary += f"- highest Transfer: ${-highest_transfer['transaction_amount']:,.2f} on {highest_transfer['date'].date()} ({highest_transfer['description']})\n"
+    summary += f"- lowest Transfer: ${-lowest_transfer['transaction_amount']:,.2f} on {lowest_transfer['date'].date()} ({lowest_transfer['description']})\n"
+    if months_span > 1:
+        summary += f"- Average Monthly Transfer: ${avg_transfer:,.2f}\n"
+
+
     return {
         "summary": summary,
         "income_transactions": df_income.to_dict(orient="records"),
-        "expense_transactions": df_expense.to_dict(orient="records")
+        "expense_transactions": df_expense.to_dict(orient="records"),
+        "transfer_transactions": df_transfer.to_dict(orient="records")
     }
 
 # TODO: Tool to check pending transfer
@@ -170,6 +187,7 @@ def check_pending_transfer(user_id: str):
         return transfer_summary
 
 # TODO: Tool to make a transfer
+@tool
 def transfer_fund(user_id: str, amount: float, recipient_account: str, recipient_bank: str, transfer_date: str):
     """
     Make a transfer from user's saving account to another account.

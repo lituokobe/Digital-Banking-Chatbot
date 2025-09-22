@@ -28,8 +28,8 @@ def fetch_user_information(config: RunnableConfig) -> List[Dict]:
     # SQL query to fetch user information
     query = """
         SELECT 
-            u.user_id, u.user_surname, u.user_given_name, u.client_since, u.nationality,
-            p.pm_surname, p.pm_given_name
+            u.user_id, u.user_surname, u.user_given_name, u.date_of_birth, u.gender, 
+            u.client_since, u.nationality, p.pm_surname, p.pm_given_name
         FROM 
             user u
             JOIN pm p ON u.pm_id = p.pm_id
