@@ -192,11 +192,9 @@ config["configurable"]["terminated"] = False
 def do_graph(user_input, chat_bot):
     """
     function to execute after input is submitted
-    :return:
     """
     if user_input:
         chat_bot.append({'role':'user', 'content': user_input})
-
     return '', chat_bot
 
 def execute_graph(chat_bot: List[Dict]) -> List[Dict]:
