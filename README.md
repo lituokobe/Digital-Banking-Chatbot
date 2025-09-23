@@ -5,20 +5,15 @@
 Digital Banking Assistant is an AI-powered chatbot designed to simulate real-world banking interactions across digital channels.
 
 Built on the LangGraph framework and powered by multi-agent workflows, it offers a conversational interface via Gradio to help users manage savings, trading, and digital banking tasks.  
-<table>
-  <tr>
-    <td>
-      <a href="https://www.bilibili.com/video/BV1WwJ2zTEWV/">
-        <img src="./img/demo_cover_en.jpg" alt="Watch demo EN" width="300">
-      </a>
-    </td>
-    <td>
-      <a href="https://www.bilibili.com/video/BV1AwJ2zTE9G/">
-        <img src="./img/demo_cover_cn.jpg" alt="Watch demo CN" width="300">
-      </a>
-    </td>
-  </tr>
-</table>
+<div style="display: flex; gap: 20px;">
+  <a href="https://www.bilibili.com/video/BV1WwJ2zTEWV/">
+    <img src="./img/demo_cover_en.jpg" alt="Watch demo EN" width="300">
+  </a>
+  <a href="https://www.bilibili.com/video/BV1AwJ2zTE9G/">
+    <img src="./img/demo_cover_cn.jpg" alt="Watch demo CN" width="300">
+  </a>
+</div>
+
 ---
 
 ## ⚙️ Setup Instructions
